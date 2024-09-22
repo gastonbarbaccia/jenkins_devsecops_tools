@@ -1,0 +1,56 @@
+pipeline {
+    
+    agent any
+    
+    options {
+        buildDiscarder logRotator( 
+                    daysToKeepStr: '3', 
+                    numToKeepStr: '3'
+            )
+    }
+    
+    environment {
+        
+        GITHUB_PROJECT_URL = 'https://github.com/bridgecrewio/terragoat'
+        
+    }
+
+
+    stages {
+        
+        stage('Checkout') {
+            steps {
+                // Asegúrate de que el uso de sudo sea necesario
+                sh("sudo rm -rf *")
+                git branch: 'main', url: "${GITHUB_PROJECT_URL}.git"
+            }
+        }
+   
+      
+        stage('Terrascan IaC- Scan') {
+            steps {
+                script {
+                    try {
+                        sh '''
+                            # Ejecuta el escaneo de la imagen
+                            terrascan scan -o json > terrascan.json
+
+                        '''
+                    } catch (Exception e) {
+                        echo "Ocurrió un error: ${e.message}"
+                    }
+                }
+            }
+        }
+        
+           
+        
+
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'terrascan.json', allowEmptyArchive: true
+        }
+    }
+}

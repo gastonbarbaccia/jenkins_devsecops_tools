@@ -1,0 +1,47 @@
+pipeline {
+    
+    agent any
+    
+    options {
+        buildDiscarder logRotator( 
+                    daysToKeepStr: '3', 
+                    numToKeepStr: '3'
+            )
+    }
+  
+    environment {
+
+        IMAGE = 'python:3.11-alpine'
+       
+    }
+
+    stages {
+   
+      
+        stage('Trivy Container - Scan') {
+            steps {
+                script {
+                    try {
+                        sh '''
+                            # Ejecuta el escaneo de la imagen
+                            sudo docker run --rm aquasec/trivy image ${IMAGE} --format json > trivy_container.json
+
+                        '''
+                    } catch (Exception e) {
+                        echo "Ocurrió un error: ${e.message}"
+                    }
+                }
+            }
+        }
+        
+           
+        
+
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'trivy_container.json', allowEmptyArchive: true
+        }
+    }
+}

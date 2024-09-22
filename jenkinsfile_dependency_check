@@ -1,0 +1,62 @@
+pipeline {
+        
+    agent any
+    
+    options {
+        buildDiscarder logRotator( 
+                    daysToKeepStr: '3', 
+                    numToKeepStr: '3'
+            )
+    }
+  
+    environment {
+
+        GITHUB_PROJECT_URL = 'https://github.com/gastonbarbaccia/laravel_blog_v2'
+       
+    }
+
+    stages {
+   
+        stage('Checkout') {
+            steps {
+                // Asegúrate de que el uso de sudo sea necesario
+                sh("sudo rm -rf *")
+                git branch: 'main', url: "${GITHUB_PROJECT_URL}.git"
+            }
+        }
+        
+        stage('Dependency Check - Scan') {
+            steps {
+                script {
+                    try {
+                        sh '''
+                            sudo docker run --rm -v "$(pwd):/workspace" -w /workspace openjdk:8 /bin/bash -c "
+                            apt-get update && apt-get upgrade -y &&
+                            apt-get install wget unzip npm -y &&
+                            wget https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.3/dependency-check-10.0.3-release.zip &&
+                            unzip dependency-check-10.0.3-release.zip &&
+                            set +e &&
+                            ./dependency-check/bin/dependency-check.sh --project 'DevSecOps' --scan './' -o './' -f HTML -f JSON -f XML --disableYarnAudit --disableNodeJS --disableAssembly --nvdApiKey c70e73a0-2046-4a37-9dfc-9abf7ea6ac7e &&
+                            set -e &&
+                            rm dependency-check-10.0.3-release.zip &&
+                            rm -rf /dependency-check
+                            "
+                        '''
+                    } catch (Exception e) {
+                        echo "Ocurrió un error: ${e.message}"
+                    }
+                }
+            }
+        }
+        
+           
+        
+
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'dependency-check-report.html, dependency-check-report.json, dependency-check-report.xml', allowEmptyArchive: true
+        }
+    }
+}

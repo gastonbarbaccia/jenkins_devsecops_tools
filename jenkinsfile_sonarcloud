@@ -1,0 +1,55 @@
+pipeline {
+    
+    agent any
+    
+    options {
+        buildDiscarder logRotator( 
+                    daysToKeepStr: '3', 
+                    numToKeepStr: '3'
+            )
+    }
+    
+    environment {
+        GITHUB_PROJECT_URL = 'https://github.com/gastonbarbaccia/laravel_blog_v2'
+        SONAR_TOKEN = '25adce145c4fd9b16863409bebb70293a678cfd4'
+        SONAR_HOST_URL = 'https://sonarcloud.io/'
+        SONAR_PROJECT_KEY = 'gastonbarbaccia_laravel'
+        SONAR_ORG='gastonbarbaccia'
+
+    }
+
+    stages {
+   
+        stage('Checkout') {
+            steps {
+                // Asegúrate de que el uso de sudo sea necesario
+                sh("sudo rm -rf *")
+                git branch: 'main', url: "${GITHUB_PROJECT_URL}.git"
+            }
+        }
+        
+        
+        stage('SonarScanner - Scan') {
+            steps {
+                script {
+                    try {
+                        sh '''
+                            sudo docker run \
+                            --rm \
+                            -e SONAR_HOST_URL="${SONAR_HOST_URL}" \
+                            -e SONAR_TOKEN="${SONAR_TOKEN}" \
+                            -v "$(pwd):/usr/src" \
+                            sonarsource/sonar-scanner-cli \
+                            -Dsonar.projectKey="${SONAR_PROJECT_KEY}" \
+                            -Dsonar.organization="${SONAR_ORG}"
+                        '''
+                    } catch (Exception e) {
+                        echo "Ocurrió un error: ${e.message}"
+                    }
+                }
+            }
+        }
+
+    }
+
+}

@@ -1,0 +1,51 @@
+pipeline {
+    
+    agent any
+    
+    options {
+        buildDiscarder logRotator( 
+                    daysToKeepStr: '3', 
+                    numToKeepStr: '3'
+            )
+    }
+    
+    environment {
+        GITHUB_PROJECT_URL = 'https://github.com/gastonbarbaccia/laravel_blog_v2'
+        
+    }
+
+    stages {
+   
+        stage('Checkout') {
+            steps {
+                // Asegúrate de que el uso de sudo sea necesario
+                sh("sudo rm -rf *")
+                git branch: 'main', url: "${GITHUB_PROJECT_URL}.git"
+            }
+        }
+        
+        stage('OWASP ZAP - Scan') {
+            steps {
+                script {
+                    try {
+                        sh '''
+                            set +e
+                            sudo docker run -v "$(pwd)":/zap/wrk/:rw zaproxy/zap-stable zap-baseline.py -t https://www.admingb.com -r baseline_scan_report.html -x baseline_scan_report.xml
+                            set -e
+                            
+                        '''
+                    } catch (Exception e) {
+                        echo "Ocurrió un error: ${e.message}"
+                    }
+                }
+            }
+        }
+
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'baseline_scan_report.html, baseline_scan_report.xml', allowEmptyArchive: true
+        }
+    }
+}

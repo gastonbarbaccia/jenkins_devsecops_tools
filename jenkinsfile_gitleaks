@@ -1,0 +1,55 @@
+pipeline {
+    
+    agent any
+    
+    options {
+        buildDiscarder logRotator( 
+                    daysToKeepStr: '3', 
+                    numToKeepStr: '3'
+            )
+    }
+    
+    environment {
+        GITHUB_PROJECT_URL = 'https://github.com/gastonbarbaccia/laravel_blog_v2'
+    }
+
+    stages {
+   
+        stage('Checkout') {
+            steps {
+                // Asegúrate de que el uso de sudo sea necesario
+                sh("sudo rm -rf *")
+                git branch: 'main', url: "${GITHUB_PROJECT_URL}.git"
+            }
+        }
+          
+        stage('Gitleaks - Scan') {
+            steps {
+                script {
+                    // Ejecutamos el comando y capturamos el código de salida
+                    def exitCode = sh(
+                        script: """
+                            gitleaks detect -v -r gitleaks-report.json --source ${WORKSPACE}
+                        """,
+                        returnStatus: true // Capturamos el código de salida
+                    )
+
+                    // Verificamos el código de salida
+                    if (exitCode != 0) {
+                        echo "El comando falló con código de salida: ${exitCode}"
+                    }
+
+                    // Forzamos el resultado del build a SUCCESS
+                    currentBuild.result = 'SUCCESS'
+                }
+            }
+        }
+
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
+        }
+    }
+}
